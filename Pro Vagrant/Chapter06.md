@@ -158,3 +158,126 @@
     config.vm.provision "shell", inline: $script, run: "always"
   end
   ```
+- The part between <<SCRIPT and SCRIPT is the text assigned to `$script`
+
+### Annoying "not a tty" Problem
+
+- There may be a red line "stdin: is not a tty" - its because of a command `mesg n` included in `root/.profile` script in `trusty32`
+- You can safely remove it from `root/.profile` script and the red message will vanish
+- Remove the command using `sudo sed -i "mesg n/d" /root/.profile` and then run provision using `vagrant provision`
+
+### Jekyll Box with the Puppet Provisioner
+
+#### Box Source Code
+
+- Run the following commands:
+  ```
+  cd folder/with/examples
+  mkdir vagrant-jekyll-puppet
+  ```
+- Create two files: `VagrantFile` and `manifests/default.pp`
+- Contents of VagrantFile:
+  ```ruby
+  Vagrant.configure(2) do |config|
+    config.vm.box = "ubuntu/trusty32"
+    config.vm.provision "puppet"
+  end
+  ```
+- Puppet script in `default.pp`:
+  ```
+  exec { 'apt-get update':
+    command => '/usr/bin/apt-get update -y'
+  }
+  package { 'nodejs':
+    require => Exec['apt-get update']
+  }
+  package { 'lynx-cur':
+    require => Exec['apt-get update']
+  }
+  package { 'ruby1.9.1-dev':
+    require => Exec['apt-get update']
+  }
+  exec { 'Install Jekyll':
+    command => '/usr/bin/gem install jekyll',
+    require => Package['ruby1.9.1-dev']
+  }
+  ```
+- Puppet manifests  consists of resources such as `exec` or `package`
+- The commands execute in a random order, the `require` commands are generally executed before installing the package
+
+#### First Run of the Puppet Provisioner
+
+- Use `vagrant up` and it will be automatically provisioned
+- While using puppet provisioner you might come across the red warning: `warning: could not retrieve fact fqdn` - which mmeans there is a problem getting a fully qualified domain name(FQDN) for machine. By default Puppet tries to assign hostname using FQDN, you could manage this issue by adding rule: `config.vm.hostname = "abc.example.net"`. This sets the hostname, and FQDN is not queried
+- You can pacakge it using `vagrant package` and also import it using `vagrant box add something.box`
+
+### Jekyll Box with the Chef Provisioner
+
+#### Box Source Code
+
+- There are two files: `VagrantFile` and `cookbooks/jekyll/recipes/default.rb`
+- Contents of VagrantFile:
+  ```ruby
+  Vagrant.configure(2) do |config|
+    config.vm.box = "ubuntu/trusty32"
+    config.vm.provision "chef_solo" do |chef|
+      chef.add_recipe "jekyll"
+    end
+  end
+  ```
+- `default.rb` content:
+  ```
+  execute 'apt-get update'
+  package 'nodejs'
+  package 'lynx-cur'
+  package 'ruby1.9.1-dev'
+  execute 'gem install jekyll'
+  ```
+
+### Jekyll Box with the Ansible Provisioner
+
+- To install Ansible on OS X:
+  ```bash
+  brew update
+  brew install ansible
+  ```
+- To install Ansible on Ubuntu:
+  ```bash
+  sudo apt-get install software-properties-common
+  sudo apt-add-repository ppa:ansible/ansible
+  sudo apt-get update
+  sudo apt-get install ansible
+  ```
+- Two files: `VagrantFile` and `playbook.yml`
+- `VagrantFile` content:
+  ```ruby
+  Vagrant.configure(2) do |config|
+    config.vm.box = "ubuntu/trusty32"
+    config.vm.provision "ansible", playbook: "playbook.yml"
+  end
+  ```
+- `playbook.yml` content:
+  ```
+  - hosts: all
+    sudo: true
+    tasks:
+      - name: Update apt
+        apt: update_cache=yes
+      - name: Install nodejs
+        apt: name=nodejs state=present
+      - name: Install lynx
+        apt: name=lynx-cur state=present
+      - name: Install ruby1.9.1-dev
+        apt: name=ruby1.9.1-dev state=present
+      - name: Install Jekyll
+        shell: 'gem install jekyll'
+  ```
+- The playbook is written in YAML format
+
+### Workflow
+
+- Two diverse procedures:
+  - The procedure to create the box is carried out by system engineers
+  - The procedure to use the box is carried out by developers
+
+**Shebang**:
