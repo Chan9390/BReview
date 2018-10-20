@@ -4,3 +4,5 @@ This repository is a collection of reviews of the technical books which I read. 
 
 The books which I have read:
 - **Beginning JavaScript - Third Edition** : Paul Wilton, Jeremy McPeak; Wrox Publication
+
+### For my reviews on Technical Books checkout - [PReview](https://github.com/Chan9390/PReview)
